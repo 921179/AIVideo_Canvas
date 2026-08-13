@@ -2,7 +2,7 @@
 
 ## 1. 项目位置与定位
 
-- 当前代码目录：`C:\Work\codexx\AIVideo\local-ai-canvas-prototype`
+- 当前代码目录：`C:\Work\codexx\local-ai-canvas-prototype`
 - 本地访问地址：`http://127.0.0.1:4173/`
 - 项目性质：用于验证节点式 AI 视频创作流程的本地单页原型，不是生产版本。
 - 当前界面固定为 A「专业导演台」，不再包含 A/B/C 方案切换。
@@ -12,12 +12,22 @@
 
 可将下面内容直接发给新的 Codex 对话：
 
-> 请继续开发 `C:\Work\codexx\AIVideo\local-ai-canvas-prototype`。先完整阅读 `HANDOFF.md`、`README.md` 和 `index.html`，保留现有本地数据兼容性。项目是本地 AI 视频无限画布原型，当前主要代码在单个 `index.html` 中。请先检查工作区状态和现有实现，再按我的最新要求修改并通过本地浏览器验证。不要恢复已移除的豆包自动跳转或 A/B/C 导演台切换。
+> 请继续开发 `C:\Work\codexx\local-ai-canvas-prototype`。先完整阅读 `HANDOFF.md`、`README.md` 和 `index.html`，保留现有本地数据兼容性。项目是本地 AI 视频无限画布原型，当前主要代码在单个 `index.html` 中。请先检查工作区状态和现有实现，再按我的最新要求修改并通过本地浏览器验证。不要恢复已移除的豆包自动跳转或 A/B/C 导演台切换。
 
 ## 3. 启动方式
 
+Windows 下双击：
+
+```text
+启动画布.cmd
+```
+
+脚本会检查 Node.js 和 npm，自动启动本地服务并打开浏览器。若服务已经运行，则只打开画布页面。
+
+也可在终端手动启动：
+
 ```powershell
-cd C:\Work\codexx\AIVideo\local-ai-canvas-prototype
+cd C:\Work\codexx\local-ai-canvas-prototype
 npm run dev
 ```
 
@@ -37,7 +47,10 @@ local-ai-canvas-prototype/
 ├─ server.mjs    # 简单的 Node.js 静态文件服务器
 ├─ package.json  # 仅包含 npm run dev
 ├─ README.md     # 功能概览
-└─ HANDOFF.md    # 本交接文档
+├─ HANDOFF.md    # 本交接文档
+└─ data/         # 本地运行数据（被 Git 忽略）
+   ├─ projects/  # 项目索引及每项目一个 JSON 文件
+   └─ assets/    # 图片资源文件
 ```
 
 项目没有前端框架和第三方运行依赖，使用原生 HTML、CSS 和 JavaScript。
@@ -65,11 +78,12 @@ local-ai-canvas-prototype/
 
 - 点击“导入图片素材”或“替换图片素材”按钮选择本机图片。
 - 导入后节点名称自动改为图片文件名。
-- 图片会生成最长边不超过 1200px 的 WebP 画布数据。
+- 图片会生成最长边不超过 1200px 的 WebP 资源文件。
+- 图片节点只保存 `/assets/...` 资源地址，不在项目 JSON 中内嵌图片数据。
 - 图片使用 `object-fit: contain` 完整显示，不裁切。
 - 节点初始高度会参考图片宽高比，节点缩放后图片继续完整适配。
 - 点击图片区域会将该图片作为真正的 `image/png` 写入剪贴板。
-- 复制节点时，节点中的图片数据也会随节点副本复制。
+- 复制节点时，图片资源地址会随节点副本复制，两个节点引用同一资源文件。
 
 ### 视频生成节点
 
@@ -94,7 +108,8 @@ local-ai-canvas-prototype/
 
 - 顶部项目选择器可选择当前工作项目。
 - “新建项目”会创建一个空白项目。
-- 每个项目分别保存名称、节点、图片、连线、节点尺寸和画布视图。
+- 每个项目分别保存为 `data/projects/<项目ID>.json`，包含名称、图片资源地址、节点、连线、节点尺寸和画布视图。
+- `data/projects/index.json` 只保存项目列表和当前项目 ID。
 - 切换项目之前会保存当前项目，并清空当前项目的撤销/重做栈。
 - 项目名称输入框可直接重命名当前项目。
 - JSON 导入和导出仅作用于当前项目。
@@ -111,15 +126,21 @@ local-ai-canvas-prototype/
 
 ## 6. 本地数据与迁移
 
-项目数据保存在浏览器 `localStorage`，不是代码目录中的文件。
+项目和图片现在保存在代码目录下的 `data/` 运行数据目录：
 
-- 多项目数据键：`mirrorflow-projects-v1`
+- 项目索引：`data/projects/index.json`
+- 项目数据：`data/projects/<项目ID>.json`，每个项目一个文件
+- 图片资源：`data/assets/<资源ID>.webp`
+- 项目节点通过 `/assets/<资源ID>.webp` 地址引用图片
+
+`data/` 已被 Git 忽略。移动、备份或恢复项目时应整体保留该目录。页面导出的单项目 JSON 只包含资源地址，不包含图片二进制内容。
+
+为了兼容旧版，服务端尚无项目文件时，页面会检查浏览器数据：
+
+- 旧版多项目键：`mirrorflow-projects-v1`
 - 旧版单项目键：`mirrorflow-canvas`
-- 首次读取多项目数据时，如果新键不存在，会把旧单项目数据迁移为第一个项目。
-
-重要：移动代码目录不会自动迁移浏览器数据。只要仍使用相同的协议、主机和端口（当前为 `http://127.0.0.1:4173`），浏览器通常仍会读取原来的 localStorage。更换端口、主机名或浏览器后属于不同站点数据，需要使用 JSON 导出/导入或手工迁移。
-
-图片以内嵌 Data URL 存储，图片较多时可能触及 localStorage 容量上限。页面会提示先导出 JSON 备份。
+- 旧项目会逐个写入独立 JSON；内嵌 Data URL 图片会先上传为资源文件，再替换为 `imageUrl`
+- 迁移成功标记：`mirrorflow-files-migrated-v1`
 
 ## 7. 状态结构摘要
 
@@ -154,7 +175,7 @@ local-ai-canvas-prototype/
   width,
   height,
   content,
-  imageData,        // 图片节点，WebP Data URL
+  imageUrl,         // 图片节点，/assets/... 资源地址
   imageWidth,
   imageHeight,
   fileName,
@@ -175,13 +196,13 @@ local-ai-canvas-prototype/
 全部位于 `index.html`：
 
 - `seed`：默认示例画布。
-- `loadWorkspace` / `persistWorkspace`：多项目读取、旧数据迁移与保存。
+- `initialize` / `persistCurrent` / `flushSave`：项目文件读取、旧数据迁移与异步保存。
 - `renderProjects` / `switchProject` / `createProject`：项目管理。
 - `normalizeState`：旧节点类型迁移、默认模型参数和节点尺寸补全。
 - `render` / `nodeBody`：节点 DOM 渲染。
 - `renderEdges`：使用节点实际尺寸计算连线端点。
 - `renderInspector` / `videoInspector`：属性面板及视频参数。
-- `prepareImage`：图片缩放和 WebP 编码。
+- `prepareImage` / `uploadImageBlob`：图片缩放、WebP 编码与资源上传。
 - `copyImageResource`：图片 PNG 剪贴板复制。
 - `promptPayload` / `copyVideoContent`：规定格式的提示词复制。
 - 文档末尾的 `pointerdown`、`pointermove`、`pointerup` 监听器：节点移动、节点缩放、画布平移和连线拖拽。
@@ -197,10 +218,10 @@ local-ai-canvas-prototype/
 ## 10. 已知限制和注意事项
 
 - 主要逻辑全部集中在一个 `index.html`，继续扩展时维护成本会逐渐升高；大改前可考虑拆分状态、画布、节点和项目管理模块。
-- 使用 localStorage 存储图片，不适合大量高清素材；生产化应改用 IndexedDB 或本地文件目录。
+- 本地服务直接写入 `data/`，仅适合受信任的单机使用；对外提供服务前需要增加认证、权限和更严格的资源治理。
 - 多项目目前支持新建、选择和重命名，但没有项目删除、复制、排序或项目级导入导出界面。
-- 浏览器自动化偶尔会因本地浏览器进程或大体积 Data URL 超时；至少应执行 JavaScript 语法检查和实际页面操作验证。
-- 项目旧副本 `C:\Work\AI漫剧\local-ai-canvas-prototype` 曾因某个终端占用而无法删除；新代码以 `C:\Work\codexx\AIVideo\local-ai-canvas-prototype` 为准。
+- 浏览器自动化偶尔会因本地浏览器进程超时；至少应执行 JavaScript 语法检查、项目 API 验证和实际页面操作验证。
+- 项目旧副本 `C:\Work\AI漫剧\local-ai-canvas-prototype` 曾因某个终端占用而无法删除；新代码以 `C:\Work\codexx\local-ai-canvas-prototype` 为准。
 
 ## 11. 修改后的最低验证清单
 
@@ -219,7 +240,7 @@ local-ai-canvas-prototype/
 ## 12. 推荐后续开发顺序
 
 1. 增加项目删除、复制和项目级导入/导出。
-2. 将图片数据从 localStorage 迁移到 IndexedDB 或用户选择的项目目录。
+2. 增加未被任何项目引用的图片资源清理机制。
 3. 拆分单文件代码，建立最小的自动化回归测试。
 4. 增加画布框选、多选、批量移动与对齐。
 5. 在用户明确选择视频生成服务后，再设计真实生成接口。
